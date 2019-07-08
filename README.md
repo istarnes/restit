@@ -1,8 +1,18 @@
 # RESTIT.. a REST framework for DJANGO
 
-### Quick Starnes
+### Quick Steps
 
-1. 
+1. Install framework
+
+2. Add "restit" to DJANGO apps.
+
+3. Add "middleware"
+
+   	'rest.middleware.SessionMiddleware',
+      	'rest.middleware.GlobalRequestMiddleware',
+      	'rest.middleware.CorsMiddleware',	
+   
+4. add url(r'^rpc/', include('rest.urls')) to your urlpatterns in urls.py
 
 ## Quick Overview
 
