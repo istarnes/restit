@@ -1,0 +1,360 @@
+<html><head>
+<style>
+	body {
+		background: white;
+		margin: 0;
+	}
+
+	header {
+		font-family: arial;
+		background: #255ad4;
+		color: white;
+		box-shadow: 0 0 4px rgb(0, 0, 0);
+		padding: 10px;
+		font-size: 18px;
+	}
+
+	div.request pre {
+		background: white;
+		color: blue;
+		padding: 8px;
+		margin: 0;
+		border-radius: 5px;
+	}
+
+	div.path {
+		font-weight: bold;
+		font-size: 24px;
+		margin-bottom: 6px;
+	}
+
+	div.docs {
+		padding: 8px;
+		font-family: sans-serif;
+		line-height: 1.3em;
+		white-space: pre;
+		font-size: 18px;
+		background: white;
+		color: gray;
+	}
+
+	div.model-name {
+		font-size: 20px;
+		font-weight: bold;
+		margin-bottom: 10px;
+	}
+
+	div.model-name span {
+		font-size: 12px;
+		padding-left: 10px;
+		color: #ffc3c3;
+	}
+
+	div.graphs, div.fields {
+		padding: 8px 40px;
+		font-family: sans-serif;
+		line-height: 1.5em;
+		white-space: pre;
+		font-size: 14px;
+		background: white;
+		color: gray;
+	}
+
+	div.rest_docs.hide {
+		display: none;
+	}
+
+	div.model-name {
+		font-size: 20px;
+		font-weight: bold;
+	}
+
+	div.response {
+		margin: 20px;
+		padding: 8px;
+		font-family: sans-serif;
+		line-height: 1.5em;
+		white-space: pre;
+		font-size: 18px;
+	}
+
+	td.input-value input {
+		width: 100%;
+		padding: 5px;
+	}
+
+	td.input-label {
+		width: 200px;
+		text-align:right;
+		padding-right:8px;
+		color: white;
+	}
+
+	span.key {
+	    color: #828282;
+	}
+
+	span.number {
+		color: #2047BC;
+	}
+
+	span.boolean {
+		color: #00BF00;
+	}
+
+	span.string {
+		color: #C26900;
+	}
+</style>
+</head><body>
+<header>
+    {% if debug %}
+    <div class="rest_docs hide">
+    	
+    </div>
+    <form action="#">
+    <div class="path">
+        <select name="method" id="method">
+            <option value="get">GET</option>
+            <option value="post">POST</option>
+            <option value="delete">DELETE</option>
+        </select> {{path}} <button type="submit" class="btn btn-default">SUBMIT</button>
+    </div>
+    <div class="request">
+        <table style="width:100%;">
+            <tbody>
+        <tr>
+            <td class="input-label">
+                PK
+            </td>
+            <td class="input-value">
+                <input class="parameter" type="text" name="pk" value="{{pk}}" placeholder="enter the id/pk for this model">
+            </td>
+        </tr>
+        {% for k, v in input.items %}
+        <tr id="param_{{k}}">
+            <td class="input-label">
+                {{k}}
+            </td>
+            <td class="input-value">
+                <input type="text" name="{{k}}" value="{{v}}">
+            </td>
+            <td class="input-remove">
+                <button type="button" class="del_param" data-id="{{k}}">REMOVE</button>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr id="add_param_row">
+                <td class="input-label">
+                    &nbsp;
+                </td>
+                <td>
+                    <button type="button" class="btn btn-default" id="add_param">ADD NEW PARAM</button>
+                </td>
+            </tr>
+        </tfoot>
+        </table>
+    </div>
+    </form>
+    {% else %}
+    <div class="path">
+        {{path}}
+    </div>
+    <div class="request">
+        request parameters:
+        <pre>{{req_out}}</pre>
+    </div>
+    {% endif %}
+</header>
+<div class="response">
+	<pre>{{ output }}</pre>
+</div>
+<script type="text/javascript" src="/static/lib/jquery.js"></script>
+<script>
+	function rest_post(path, params, method) {
+	    method = method || "post"; // Set method to post by default if not specified.
+
+	    // The rest of this code assumes you are not using a library.
+	    // It can be made less wordy if you use one.
+	    var form = document.createElement("form");
+	    form.setAttribute("method", method);
+	    form.setAttribute("action", path);
+
+	    for(var key in params) {
+	        if(params.hasOwnProperty(key)) {
+	            var hiddenField = document.createElement("input");
+	            hiddenField.setAttribute("type", "hidden");
+	            hiddenField.setAttribute("name", key);
+	            hiddenField.setAttribute("value", params[key]);
+
+	            form.appendChild(hiddenField);
+	        }
+	    }
+
+	    document.body.appendChild(form);
+	    form.submit();
+	}
+
+	function syntaxHighlight(json) {
+		if (typeof json != 'string') {
+		     json = JSON.stringify(json, undefined, 4);
+		}
+		json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+		    var cls = 'number';
+		    if (/^"/.test(match)) {
+		        if (/:$/.test(match)) {
+		            cls = 'key';
+		        } else {
+		            cls = 'string';
+		        }
+		    } else if (/true|false/.test(match)) {
+		        cls = 'boolean';
+		    } else if (/null/.test(match)) {
+		        cls = 'null';
+		    }
+		    return '<span class="' + cls + '">' + match + '</span>';
+		});
+	}
+
+
+	$(document).ready(function(){
+		{% if debug %}
+		var help;
+		try {
+			help = {{help|safe}};
+			console.log(help);
+		} catch(err) {
+
+		}
+
+		if (help) {
+			var $docs;
+			if (help.model_name) {
+				var $title = $("<div />").addClass("model-name").html(help.model_name);
+				$title.append("<span> (show docs)</span>");
+				$title.on("click", function() {$("div.rest_docs").toggleClass("hide");});
+				$("header").prepend($title);
+			}
+
+			if (help.doc) {
+				$docs = $("<div />").addClass("docs").html(help.doc);
+				$("div.rest_docs").append($docs);
+			}
+
+			if (help.fields) {
+				var $fields = $("<div />").addClass("fields").html(syntaxHighlight(help.fields));
+				$fields.prepend("<h3>Fields</h3>");
+				$("div.rest_docs").append($fields);
+			}
+
+			if (help.graphs) {
+				var $graphs = $("<div />").addClass("graphs").html(syntaxHighlight(help.graphs));
+				$graphs.prepend("<h3>Graphs</h3>");
+				$("div.rest_docs").append($graphs);
+			}
+		}
+
+		{% endif %}
+		
+		var raw_json = $("div.response pre").text();
+		console.log(raw_json);
+		var pretty_json = syntaxHighlight(raw_json);
+		var select_all = false;
+		var last_target = null;
+		$("div.response").html(pretty_json);
+		$("div.response").on("dblclick", function(evt){
+			var target = evt.target;
+			if (target == last_target) {
+				var $el = $("div.response");
+				var range = document.createRange();
+				range.selectNode($el[0]);
+				window.getSelection().removeAllRanges();
+				window.getSelection().addRange(range);
+			}
+			last_target = target;
+			// console.log($target);
+			// select_all = !select_all;
+			// if (select_all) {
+			// 	var $el = $("div.response");
+			// 	var range = document.createRange();
+			// 	range.selectNode($el[0]);
+			// 	window.getSelection().removeAllRanges();
+			// 	window.getSelection().addRange(range);
+			// }
+		});
+
+		var path = "{{path}}";
+		$("form").on("submit", function(evt){
+			var api_url = path;
+			console.log("api_url")
+			var data = {};
+			var method = "GET";
+			var pk = pk;
+
+			$.each($('form').serializeArray(), function(_, kv) {
+				if (kv.name == "pk") {
+					if (kv.value) {
+						if (api_url[api_url.length-1] != "/") api_url += "/";
+						api_url += kv.value;
+					}
+				} else if (kv.name == "method") {
+					method = kv.value;
+				} else {
+					data[kv.name] = kv.value;
+				}
+			});
+
+			rest_post(api_url, data, method);
+			return false;
+		});
+
+		var addParam = function() {
+			var name = prompt("Please enter parameter name");
+			var $tr = $("<tr />");
+			var $td_key = $("<td />").addClass("input-label").text(name).appendTo($tr);
+			var $td_value = $("<td />").addClass("input-value")
+				.append($("<input />").attr("name", name))
+				.appendTo($tr);
+			var $td_del = $("<td />").addClass("input-value")
+				.append($("<button type='button' />")
+					.on("click", function(evt){
+						$(evt.currentTarget).parent().parent().remove();
+					})
+					.text("REMOVE")
+					.addClass("del_param"))
+				.appendTo($tr);
+			$("table tfoot").append($tr).append($("tr#add_param_row"));
+
+			$tr.find("input").focus().select();
+			$("input").off("keydown").on('keydown', handle_tab);
+			return false;
+		}
+
+		$("button#add_param").on("click", function(evt){
+			addParam();
+		});
+
+		var handle_tab = function(e) { 
+		  var keyCode = e.keyCode || e.which; 
+
+		  if (keyCode == 9) { 
+		    e.preventDefault(); 
+		    // call custom function here
+		    addParam();
+		  } 
+		}
+
+		$("input").on('keydown', handle_tab);
+
+		$("select#method").val("{{method.lower}}");
+
+		$("button.del_param").on("click", function(evt){
+			console.log($(evt.currentTarget).parent("tr"));
+			$(evt.currentTarget).parent().parent().remove();
+		});
+	});
+</script>
+</body></html>
