@@ -1,17 +1,76 @@
 <html><head>
 <style>
 	body {
-		background: white;
 		margin: 0;
+		height: 100%;
 	}
 
-	header {
+	button.btn-submit {
+		box-shadow: 2px 2px 3px rgb(0 0 0 / 50%);
+		background: #3aa6e7;
+		color: white;
+		border: 1px solid #ccc;
+		border-radius: 3px;
+	}
+
+	button.btn.btn-link {
+		border: 0;
+		background:  transparent;
+		color: #66CCFF;
+		padding:  10px;
+	}
+
+	span#show_docs {
+		cursor: pointer;
+	}
+
+	div.row {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		width: 100%;
+		height: 100%;
+	}
+
+	div.column-25{
+		display: flex;
+		flex-direction: column;
+		flex-basis: 100%;
+		flex: 0 0 20em;
+		height: 100%;
+	}
+
+	div.column-75{
+		display: flex;
+		flex-direction: column;
+		flex-basis: 100%;
+		flex: 1;
+		height:  100%;
+		overflow-y: auto;
+	}
+
+	div.request-info {
+		padding: 15px;
 		font-family: arial;
-		background: #255ad4;
 		color: white;
 		box-shadow: 0 0 4px rgb(0, 0, 0);
 		padding: 10px;
 		font-size: 18px;
+		height: 100%;
+		background: #333333;
+	}
+
+	footer {
+		font-size:  12px;
+		position: absolute;
+		width:  20em;
+		pdding:  15px;
+		bottom: 10px;
+	}
+
+	header select {
+		background: #333333;
+		color: white;
 	}
 
 	div.request pre {
@@ -19,23 +78,26 @@
 		color: blue;
 		padding: 8px;
 		margin: 0;
-		border-radius: 5px;
+		border-radius: 3px;
 	}
 
 	div.path {
-		font-weight: bold;
-		font-size: 24px;
-		margin-bottom: 6px;
+		color: #3bb6ff;
+		font-weight: normal;
+		font-size: 18px;
+		margin-bottom: 15px;
 	}
 
 	div.docs {
-		padding: 8px;
-		font-family: sans-serif;
+		font-family: monospace;
 		line-height: 1.3em;
-		white-space: pre;
+		white-space: pre-wrap;
 		font-size: 18px;
-		background: white;
-		color: gray;
+		background: #ccc;
+		margin: 25px 15px;
+		border-radius: 5px;
+		color: black;
+		padding: 15px;
 	}
 
 	div.model-name {
@@ -56,7 +118,6 @@
 		line-height: 1.5em;
 		white-space: pre;
 		font-size: 14px;
-		background: white;
 		color: gray;
 	}
 
@@ -69,13 +130,27 @@
 		font-weight: bold;
 	}
 
+	h4.subtitle {
+		font-family: arial;
+		color: orange;
+		margin: 10px 20px;
+		padding: 0;
+		font-size: 14px;
+	}
+
+	header h4.subtitle {
+		margin: 10px;
+	}
+
 	div.response {
-		margin: 20px;
+		margin: 5px 20px;
 		padding: 8px;
 		font-family: sans-serif;
 		line-height: 1.5em;
 		white-space: pre;
-		font-size: 18px;
+		font-size: 14px;
+		border-radius: 3px;
+		background: white;
 	}
 
 	td.input-value input {
@@ -84,7 +159,6 @@
 	}
 
 	td.input-label {
-		width: 200px;
 		text-align:right;
 		padding-right:8px;
 		color: white;
@@ -105,73 +179,106 @@
 	span.string {
 		color: #C26900;
 	}
+
+	div.version {
+		position: absolute;
+		right: 10px;
+		top:  10px;
+		font-size:  10px;
+		color: green;
+	}
 </style>
 </head><body>
-<header>
-    {% if debug %}
-    <div class="rest_docs hide">
-    	
-    </div>
-    <form action="#">
-    <div class="path">
-        <select name="method" id="method">
-            <option value="get">GET</option>
-            <option value="post">POST</option>
-            <option value="delete">DELETE</option>
-        </select> {{path}} <button type="submit" class="btn btn-default">SUBMIT</button>
-    </div>
-    <div class="request">
-        <table style="width:100%;">
-            <tbody>
-        <tr>
-            <td class="input-label">
-                PK
-            </td>
-            <td class="input-value">
-                <input class="parameter" type="text" name="pk" value="{{pk}}" placeholder="enter the id/pk for this model">
-            </td>
-        </tr>
-        {% for k, v in input.items %}
-        <tr id="param_{{k}}">
-            <td class="input-label">
-                {{k}}
-            </td>
-            <td class="input-value">
-                <input type="text" name="{{k}}" value="{{v}}">
-            </td>
-            <td class="input-remove">
-                <button type="button" class="del_param" data-id="{{k}}">REMOVE</button>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-        <tfoot>
-            <tr id="add_param_row">
-                <td class="input-label">
-                    &nbsp;
-                </td>
-                <td>
-                    <button type="button" class="btn btn-default" id="add_param">ADD NEW PARAM</button>
-                </td>
-            </tr>
-        </tfoot>
-        </table>
-    </div>
-    </form>
-    {% else %}
-    <div class="path">
-        {{path}}
-    </div>
-    <div class="request">
-        request parameters:
-        <pre>{{req_out}}</pre>
-    </div>
-    {% endif %}
-</header>
-<div class="response">
-	<pre>{{ output }}</pre>
+
+<div class="row">
+	<div class="column-25">
+		<div class="request-info">
+			<img src="https://www.311labs.com/assets/img/logo.png" alt="">
+			
+			<h4 class="rest-title">REST API</h4>
+		    {% if debug %}
+		    <form action="#">
+		    <div class="path">
+		         {{path}} 
+		    </div>
+		    <hr>
+		    <div class="request">
+		        <table style="width:100%;">
+		            <tbody>
+		        <tr>
+		            <td class="input-label">
+		                PK
+		            </td>
+		            <td class="input-value">
+		                <input class="parameter" type="text" name="pk" value="{{pk}}" placeholder="enter the id/pk for this model">
+		            </td>
+		        </tr>
+		        {% for k, v in input.items %}
+		        <tr id="param_{{k}}">
+		            <td class="input-label">
+		                {{k}}
+		            </td>
+		            <td class="input-value">
+		                <input type="text" name="{{k}}" value="{{v}}">
+		            </td>
+		            <td class="input-remove">
+		                <button type="button" class="del_param" data-id="{{k}}">X</button>
+		            </td>
+		        </tr>
+		        {% endfor %}
+		        </tbody>
+		        <tfoot>
+		            <tr id="add_param_row">
+		                <td class="input-label">
+		                    &nbsp;
+		                </td>
+		                <td>
+		                    <button type="button" class="btn btn-link" id="add_param">+ ADD NEW PARAM</button>
+		                </td>
+		            </tr>
+		        </tfoot>
+		        </table>
+		    </div>
+		    <hr>
+		    <select name="method" id="method">
+		        <option value="get">GET</option>
+		        <option value="post">POST</option>
+		        <option value="delete">DELETE</option>
+		    </select>
+		    <button type="submit" class="btn btn-submit">SUBMIT</button>
+		    </form>
+		    {% else %}
+		    <div class="path">
+		        {{path}}
+		    </div>
+		    <h4 class='subtitle'>request:</h4>
+		    <div class="request">
+		        <pre>{{req_out}}</pre>
+		    </div>
+		    {% endif %}
+
+		    <footer>
+		    	<div class="disclaimer">
+
+		    	</div>
+		    </footer>
+		</div>
+
+	</div>
+	<div class="column-75">
+		<div class="version">{{version}}</div>
+		<div class="rest_docs hide">
+
+		</div>
+		<h4 class='subtitle'>response:</h4>
+		<div class="response">
+			<pre>{{ output }}</pre>
+		</div>
+	</div>
 </div>
-<script type="text/javascript" src="/static/lib/jquery.js"></script>
+
+<!-- <script type="text/javascript" src="/static/lib/jquery.js"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script>
 	function rest_post(path, params, method) {
 	    method = method || "post"; // Set method to post by default if not specified.
@@ -209,6 +316,7 @@
 		            cls = 'key';
 		        } else {
 		            cls = 'string';
+		            match = match.replaceAll("\\n", "<br />").replaceAll('\\"', '"');
 		        }
 		    } else if (/true|false/.test(match)) {
 		        cls = 'boolean';
@@ -222,25 +330,39 @@
 
 	$(document).ready(function(){
 		{% if debug %}
-		var help;
+		window.help;
 		try {
-			help = {{help|safe}};
+			window.help = {{help|safe}};
 			console.log(help);
 		} catch(err) {
-
+			console.warn(err);
 		}
 
-		if (help) {
+		var help = window.help;
+
+		if (window.help) {
 			var $docs;
 			if (help.model_name) {
 				var $title = $("<div />").addClass("model-name").html(help.model_name);
-				$title.append("<span> (show docs)</span>");
-				$title.on("click", function() {$("div.rest_docs").toggleClass("hide");});
-				$("header").prepend($title);
+				$title.append("<span id='show_docs'>show docs</span>");
+				$title.on("click", function() {
+					$("div.column-75").scrollTop(0);
+					if ($("div.rest_docs").is(":visible")) {
+						$("#show_docs").text("show docs");
+						$("div.response").show();
+					} else {
+						$("#show_docs").text("hide docs");
+						$("div.response").hide();
+					}
+					$("div.rest_docs").toggleClass("hide");
+				});
+				$(".rest-title").after($title);
 			}
 
 			if (help.doc) {
-				$docs = $("<div />").addClass("docs").html(help.doc);
+				var doc_str = help.doc.trim();
+				if (help.model_name) doc_str = help.model_name + " Documentation\n\n" + doc_str;
+				$docs = $("<div />").addClass("docs").html(doc_str);
 				$("div.rest_docs").append($docs);
 			}
 
@@ -258,7 +380,7 @@
 		}
 
 		{% endif %}
-		
+
 		var raw_json = $("div.response pre").text();
 		console.log(raw_json);
 		var pretty_json = syntaxHighlight(raw_json);
@@ -323,8 +445,8 @@
 					.on("click", function(evt){
 						$(evt.currentTarget).parent().parent().remove();
 					})
-					.text("REMOVE")
-					.addClass("del_param"))
+					.text("X")
+					.addClass("btn btn-link del_param"))
 				.appendTo($tr);
 			$("table tfoot").append($tr).append($("tr#add_param_row"));
 
@@ -337,14 +459,14 @@
 			addParam();
 		});
 
-		var handle_tab = function(e) { 
-		  var keyCode = e.keyCode || e.which; 
+		var handle_tab = function(e) {
+		  var keyCode = e.keyCode || e.which;
 
-		  if (keyCode == 9) { 
-		    e.preventDefault(); 
+		  if (keyCode == 9) {
+		    e.preventDefault();
 		    // call custom function here
 		    addParam();
-		  } 
+		  }
 		}
 
 		$("input").on('keydown', handle_tab);

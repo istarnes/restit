@@ -10,5 +10,5 @@ class Command(BaseCommand):
         apis = url_docs.getRestApis(urls.urlpatterns)
 
         for api in apis:
-            print api["url"]
-            print api["doc"]
+            print((api["url"]))
+            print((api["doc"]))

@@ -15,12 +15,12 @@ def getShortTZ(zone, when=None):
 
 def convertToLocalTime(zone, when=None):
     """
-    convert timezones in python can result in minutes shifting... 
+    convert timezones in python can result in minutes shifting...
     just do a simple hour offset with timedelta
     """
     if when is None:
         when = datetime.today()
-    
+
     offset = getTimeZoneOffset(zone, when)
     if offset >= 0:
         when = when - timedelta(hours=offset)
@@ -69,6 +69,12 @@ def getTimeZoneOffset(zone, when=None, hour=None, dst=True):
         offset -= 24
     return offset
 
+def diffNow(dt):
+    return diffSeconds(datetime.now(), dt)
+
+def diffSeconds(t1, t2):
+    return (t1 - t2).total_seconds()
+
 def diffMinutes(t1, t2):
     diff = t1 - t2
     days, seconds = diff.days, diff.seconds
@@ -104,16 +110,16 @@ def parseDate(date_str, is_future=False, is_past=False, month_end=True, as_date=
     if as_date and res:
         return date(res.year, res.month, res.day)
     return res
-    
+
 def parseDateTime(date_str, is_future=False, is_past=False, month_end=True):
-        if type(date_str) in [str, unicode]:
+        if type(date_str) in [str, str]:
             dt = None
             if len(date_str) > 6 and date_str.count('.') <= 1 and date_str.split('.')[0].isdigit():
                 try:
                     f = float(date_str)
                     return datetime.utcfromtimestamp(f)
                 except Exception as err:
-                    print err
+                    print(err)
             else:
                 fix_month = False
                 if date_str.count('-') or date_str.count('/') or date_str.count(' ') or date_str.count('.'):
@@ -193,14 +199,20 @@ def getDateRange(start, end=None, kind=None, zone=None, hour=0, eod=None, end_eo
         elif kind == "year":
             start = start.replace(hour=0, day=1, month=1)
             end = getEndOfMonth(start.replace(month=12))
-        elif type(kind) is int or (isinstance(kind, basestring) and kind.isdigit()):
+        elif type(kind) is int or (isinstance(kind, str) and kind.isdigit()):
             end = start + timedelta(hours=24)
             start = end - timedelta(days=int(kind))
     if end is None:
         end = start + timedelta(hours=24)
 
+    if zone and zone.lower() == "utc":
+        zone = None
+        if not kind and eod:
+            hour = None
     # now lets convert our times to the zone
     if zone or hour:
+        if zone is None:
+            zone = "UTC"
         offset = getTimeZoneOffset(zone, start, hour=hour)
         if offset:
             start = start + timedelta(hours=offset)
@@ -209,6 +221,6 @@ def getDateRange(start, end=None, kind=None, zone=None, hour=0, eod=None, end_eo
         offset = getTimeZoneOffset(zone, end, hour=hour)
         if offset:
             end = end + timedelta(hours=offset)
-    
-    print("daterange: {} to {}".format(start, end))
+
+    # print("daterange: {} to {}".format(start, end))
     return start, end

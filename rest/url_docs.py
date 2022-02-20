@@ -41,9 +41,9 @@ def unwrap_and_compare(kwargs_provided, callback, description):
     # if neccessary.
 
     if callback is not None:
-        while callback.func_closure:
+        while callback.__closure__:
             compare(kwargs_provided, callback, description)
-            cells = callback.func_closure
+            cells = callback.__closure__
             guess = guess_wrapper(cells)
             if guess:
                 callback = guess
@@ -67,8 +67,8 @@ def compare(kwargs_provided, callback, description):
 
     missing_kwargs = set(required_args) - kwargs_provided
     if missing_kwargs:
-        print "%s: view requires kwargs %s not in the url kwargs" % (
-            description, list(missing_kwargs))
+        print(("%s: view requires kwargs %s not in the url kwargs" % (
+            description, list(missing_kwargs))))
 
 
     if spec.keywords:
@@ -77,8 +77,8 @@ def compare(kwargs_provided, callback, description):
 
     extra_kwargs = kwargs_provided - set(args)
     if extra_kwargs:
-        print "%s: url provides kwargs %s not in the view signature" % (
-            description, list(extra_kwargs))
+        print(("%s: url provides kwargs %s not in the view signature" % (
+            description, list(extra_kwargs))))
 
 
 
@@ -91,26 +91,26 @@ def check_resolver(entry, prefix):
     #print dir(entry)
     description = (getattr(entry, 'name', None) or effective_regex.pattern)
 
-    kwargs_provided = set(['request'] + getattr(entry, 'default_args', {}).keys())
+    kwargs_provided = set(['request'] + list(getattr(entry, 'default_args', {}).keys()))
     #print kwargs_provided
-    kwargs_provided.update(effective_regex.groupindex.keys())
+    kwargs_provided.update(list(effective_regex.groupindex.keys()))
     callback = unwrap_and_compare(kwargs_provided, entry.callback, description)
 
-    url_request = {"url":description, "methods":{}, "args": effective_regex.groupindex.keys()}
+    url_request = {"url":description, "methods":{}, "args": list(effective_regex.groupindex.keys())}
     if hasattr(entry, 'default_args'):
         dargs = getattr(entry, 'default_args', {})
-        if dargs.has_key("__MODULE"):
+        if "__MODULE" in dargs:
             url_request["module"] = dargs["__MODULE"].__name__
             method_patterns = dargs["__MODULE"].urlpattern_methods
-            if method_patterns.has_key(entry.regex.pattern + "__GET"):
+            if entry.regex.pattern + "__GET" in method_patterns:
                 url_request["methods"]["get"] = {"callback": method_patterns[entry.regex.pattern+ "__GET"]}
-            if method_patterns.has_key(entry.regex.pattern + "__POST"):
+            if entry.regex.pattern + "__POST" in method_patterns:
                 url_request["methods"]["post"] = {"callback": method_patterns[entry.regex.pattern+ "__POST"]}
-            if method_patterns.has_key(entry.regex.pattern + "__DELETE"):
+            if entry.regex.pattern + "__DELETE" in method_patterns:
                 url_request["methods"]["delete"] = {"callback": method_patterns[entry.regex.pattern+ "__DELETE"]}
-            if method_patterns.has_key(entry.regex.pattern + "__PUT"):
+            if entry.regex.pattern + "__PUT" in method_patterns:
                 url_request["methods"]["put"] = {"callback": method_patterns[entry.regex.pattern+ "__PUT"]}
-    if not url_request.has_key("module") and callback:
+    if "module" not in url_request and callback:
         url_request["module"] = callback.__module__
     url_request["callback"] = callback
 
@@ -195,14 +195,14 @@ def parseDoc(api, graphs):
                         value = val[:epos].strip()
 
                 if key and value:
-                    if not graphs.has_key(key):
+                    if key not in graphs:
                         graphs[key] = value
                     graph_names.append(key)
                 key = nkey
             elif key:
                 value = "{0}={1}".format(value, val)
         if key and value:
-            if not graphs.has_key(key):
+            if key not in graphs:
                 graphs[key] = value
             graph_names.append(key)
 
@@ -225,8 +225,8 @@ def parseDoc(api, graphs):
 
 import json
 def dumpGraphs(module_name, graphs):
-    if not sys.modules.has_key(module_name):
-        print "MODULE NOT LOADED.. loading"
+    if module_name not in sys.modules:
+        print("MODULE NOT LOADED.. loading")
         return
     module = sys.modules[module_name]
     for name in module.__dict__:
@@ -241,7 +241,7 @@ def dumpGraphs(module_name, graphs):
             graph = getattr(module, name)
             # print graph.keys()
             dc = {}
-            if graph.has_key("fields"):
+            if "fields" in graph:
                 fields = graph["fields"]
                 graph_doc = {}
                 for f in fields:
@@ -259,7 +259,7 @@ def dumpGraphs(module_name, graphs):
                         for o in levels:
                             if o is field:
                                 continue
-                            if not current.has_key(o):
+                            if o not in current:
                                 current[o] = {}
                             elif type(current[o]) is str:
                                 current[o] = {}

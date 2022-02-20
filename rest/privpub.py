@@ -2,16 +2,16 @@
 import base64
 import binascii
 import json
-from StringIO import StringIO
+from io import BytesIO
 
 try:
-    from Crypto.Cipher import AES
-    from Crypto.Random import random as crypt_random
     from Crypto import Random
     from Crypto.PublicKey import RSA
     from Crypto.Cipher import AES, PKCS1_OAEP
-except:
-    print "missing Crypto module.... pip install pycrypto"
+except Exception:
+    print("missing Crypto module.... pip install pycrypto")
+
+from . import crypto
 
 
 class PrivatePublicEncryption(object):
@@ -23,37 +23,43 @@ class PrivatePublicEncryption(object):
             with open(public_key_file, 'r') as f:
                 public_key = f.read()
         if private_key:
-            if isinstance(private_key, basestring):
-                private_key = RSA.import_key(private_key)
+            if isinstance(private_key, str):
+                private_key = RSA.importKey(private_key)
         self.private_key = private_key
         if public_key:
-            if isinstance(public_key, basestring):
-                public_key = RSA.import_key(public_key)
+            if isinstance(public_key, str):
+                public_key = RSA.importKey(public_key)
         self.public_key = public_key
 
+    def generatePublicKey(self, make_new=False):
+        if self.public_key is None or make_new:
+            self.public_key = generatePublicKey(self.private_key)
+        return self.public_key
+
     def encrypt(self, data):
+        self.generatePublicKey()
         return self.encryptToB64(data)
 
-    def decrypt(self, data):
-        return self.decryptFromB64(data)
+    def decrypt(self, data, as_string=True):
+        return self.decryptFromB64(data, as_string)
 
     def encryptToB64(self, data):
         # this function exports encrypted data as base64
         ebytes = encryptWithPublicKey(data, self.public_key)
-        return base64.b64encode(ebytes)
+        return crypto.toString(base64.b64encode(ebytes))
 
-    def decryptFromB64(self, data):
+    def decryptFromB64(self, data, as_string=True):
         data = base64.b64decode(data)
-        return decryptWithPrivateKey(data, self.private_key)
+        return decryptWithPrivateKey(data, self.private_key, as_string)
 
     def encryptToHex(self, data):
         # this function exports encrypted data as hex
         ebytes = encryptWithPublicKey(data, self.public_key)
-        return binascii.hexlify(ebytes)
+        return crypto.toString(binascii.hexlify(ebytes))
 
-    def decryptFromHex(self, data):
+    def decryptFromHex(self, data, as_string=True):
         data = binascii.unhexlify(data)
-        return decryptWithPrivateKey(data, self.private_key)
+        return decryptWithPrivateKey(data, self.private_key, as_string)
 
 
 def generatePrivateKey(size=2048):
@@ -72,13 +78,13 @@ def generatePublicKey(private_key):
     file_out = open("receiver.pem", "wb")
     file_out.write(public_key)
     """
-    if isinstance(private_key, basestring):
+    if isinstance(private_key, str):
         private_key = RSA.import_key(private_key)
     return private_key.publickey()
 
 
 def encryptWithPublicKey(data, public_key):
-    if isinstance(public_key, basestring):
+    if isinstance(public_key, str):
         public_key = RSA.import_key(public_key)
 
     if isinstance(data, dict) or isinstance(data, list):
@@ -92,19 +98,19 @@ def encryptWithPublicKey(data, public_key):
 
     # Encrypt the data with the AES session key
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
-    ciphertext, tag = cipher_aes.encrypt_and_digest(data)
-    output = StringIO()
+    ciphertext, tag = cipher_aes.encrypt_and_digest(crypto.toBytes(data))
+    output = BytesIO()
     [output.write(x) for x in (enc_session_key, cipher_aes.nonce, tag, ciphertext)]
     raw = output.getvalue()
     output.close()
     return raw
 
 
-def decryptWithPrivateKey(data, private_key):
-    if isinstance(private_key, basestring):
+def decryptWithPrivateKey(data, private_key, as_string=True):
+    if isinstance(private_key, str):
         private_key = RSA.import_key(private_key)
-    if isinstance(data, basestring):
-        data = StringIO(data)
+    if isinstance(data, (str, bytes)):
+        data = BytesIO(data)
     enc_session_key, nonce, tag, ciphertext = \
         [data.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1)]
 
@@ -113,4 +119,6 @@ def decryptWithPrivateKey(data, private_key):
 
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
     decrypted_data = cipher_aes.decrypt_and_verify(ciphertext, tag)
+    if as_string:
+        return crypto.toString(decrypted_data)
     return decrypted_data

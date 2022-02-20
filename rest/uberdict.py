@@ -3,24 +3,29 @@ __version__ = '.'.join(map(str, __version_info__))
 
 ALL = ['UberDict']
 
-import sys
+import sys, os
 import json
 import datetime
 import time
+from decimal import Decimal
+
+import zlib
+import base64
 
 # py2/py3 compatibility
 if sys.version_info[0] == 2:
     def iteritems(d):
-        return d.iteritems()
+        return iter(list(d.items()))
 else:
     def iteritems(d):
-        return d.items()
+        return list(d.items())
 
 
 # For internal use only as a value that can be used as a default
 # and should never exist in a dict.
 _MISSING = object()
-
+# we need these for DJANGO Fields
+_MISSING_RAISE_ON_KEYS = ["resolve_expression", "prepare_database_save", "as_sql", "get_placeholder"]
 
 class UberDict(dict):
 
@@ -52,6 +57,10 @@ class UberDict(dict):
         by `setattr(ud, 'a.b', 'a.b')`.
         """
         dict.__init__(self, *args, **kwargs)
+
+    def __raise_on_missing__(self, key):
+        # you can override this to put keys you want to override on missing or all keys
+        return key in _MISSING_RAISE_ON_KEYS
 
     def __getitem__(self, key):
         """
@@ -119,8 +128,9 @@ class UberDict(dict):
             # '__missing__' if key is not in dict
             val = dict.get(self, key, _MISSING)
             if val is _MISSING:
+                if self.__raise_on_missing__(key):
+                    raise AttributeError("no attribute '%s'" % (key,))
                 return None
-                # raise AttributeError("no attribute '%s'" % (key,))
             return val
         except KeyError as e:
             raise AttributeError("no attribute '%s'" % (e.args[0],))
@@ -166,6 +176,44 @@ class UberDict(dict):
         except KeyError:
             return default
 
+    def find(self, key, default=None, data=None):
+        # this will search the dict for the first key it finds that matches this
+        if data is None:
+            data = self
+        v = data.get(key, _MISSING)
+        if v != _MISSING:
+            return v
+        for k in data:
+            d = data.get(k)
+            if isinstance(d, dict):
+                v = self.find(key, _MISSING, d)
+                if v != _MISSING:
+                    return v
+        return default
+
+    def changes(self, dict2, ignore_keys=None):
+        changes = UberDict()
+        if not bool(dict2):
+            dict2 = UberDict()
+        for k in self:
+            if ignore_keys and k in ignore_keys:
+                continue
+            v1 = self.get(k, None)
+            v2 = dict2.get(k, None)
+            if isinstance(v1, dict):
+                if not isinstance(v1, UberDict):
+                    v1 = UberDict.fromdict(v1)
+                v = v1.changes(v2)
+                if len(v):
+                    changes[k] = v
+            elif isinstance(v1, list) and isinstance(v2, list):
+                if bool(set(v1).intersection(set(v2))):
+                    changes[k] = v2
+            else:
+                if v1 != v2:
+                    changes[k] = v2
+        return changes
+
     def fromKeys(self, keys):
         # generates a new UberDict, but only with the
         # passed in keys
@@ -203,9 +251,75 @@ class UberDict(dict):
                     v = cls.fromdict(v)
                 elif isinstance(v, list):
                     v = cls.fromdict(v)
+                # handle keys like 'key1.key2.key3'
+                if '.' in k:
+                    skeys = k.split('.')
+                    nd = ud
+                    while len(skeys) > 1:
+                        skey = skeys.pop(0)
+                        nd2 = nd.get(skey, cls())
+                        dict.__setitem__(nd, skey, nd2)
+                        nd = nd2
+                    skey = skeys.pop(0)
+                    dict.__setitem__(nd, skey, v)
+                    continue
                 dict.__setitem__(ud, k, v)
             return ud
+        elif mapping is None:
+            return cls()
         return mapping
+
+    @classmethod
+    def fromZIP(cls, data, ignore_errors=True):
+        if ignore_errors:
+            if not isinstance(data, bytes):
+                data = base64.b64decode(data.encode('utf-8'))
+            return cls.fromJSON(zlib.decompress(data))
+        try:
+            if not isinstance(data, bytes):
+                data = base64.b64decode(data.encode('utf-8'))
+            return cls.fromJSON(zlib.decompress(data))
+        except Exception as err:
+            pass
+        return cls()
+
+    def toZIP(self, as_string=False):
+        # compress the dictionary to a zip
+        cout = zlib.compress(str.encode(self.toJSON(as_string=True)))
+        if as_string:
+            return base64.b64encode(cout).decode('utf-8')
+        return cout
+
+    def save(self, path):
+        with open(path, "w") as f:
+            f.write(self.toJSON(as_string=True))
+            f.write("\n")
+
+    @classmethod
+    def fromFile(cls, path, ignore_errors=False):
+        if not os.path.isfile(path) or os.stat(path).st_size == 0:
+            f = open(path, "w")
+            f.write("{}")
+            f.close()
+        if not ignore_errors:
+            with open(path, "r") as f:
+                return cls.fromJSON(f.read())
+        try:
+            with open(path, "r") as f:
+                return cls.fromJSON(f.read())
+        except:
+            pass
+        return cls()
+
+    @classmethod
+    def fromJSON(cls, text, ignore_errors=True):
+        if not ignore_errors:
+            return cls.fromdict(json.loads(text))
+        try:
+            return cls.fromdict(json.loads(text))
+        except Exception as err:
+            pass
+        return cls()
 
     def toJSON(self, as_string=False, fields=None, exclude=None):
         """
@@ -228,6 +342,8 @@ class UberDict(dict):
                 d[k] = time.mktime(v.timetuple())
             elif isinstance(v, datetime.date):
                 d[k] = v.strftime("%Y/%m/%d")
+            elif isinstance(v, Decimal):
+                d[k] = float(v)
             elif hasattr(v, "id"):
                 d[k] = v.id
             else:
@@ -263,6 +379,14 @@ class UberDict(dict):
         plain dict values that you don't want converted to `UberDict`).
         """
         return UberDict(self)
+
+    def extend(self, *args, **kwargs):
+        for arg in args:
+            if isinstance(arg, dict):
+                self.extend(**arg)
+        for key in kwargs:
+            self[key] = kwargs[key]
+        return self
 
     def setdefault(self, key, default=None):
         """
